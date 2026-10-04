@@ -1,10 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>bhushan</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="theme-color" content="#1c1c1e">
+  <title>Calculator</title>
+  <style>
+    :root {
+      --bg: #f2f2f7; --body: #ffffff; --text: #1c1c1e; --muted: #6e6e73;
+      --key: #e5e5ea; --key-text: #1c1c1e; --fn: #d1d1d6; --op: #ff9f0a; --op-text: #fff;
+      --shadow: 0 10px 30px rgba(0,0,0,.12);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #000; --body: #1c1c1e; --text: #fff; --muted: #8e8e93;
+        --key: #333336; --key-text: #fff; --fn: #a5a5a5; --op: #ff9f0a; --op-text: #fff;
+        --shadow: none;
+      }
+      .fn { color: #000; }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .calc {
+      width: 100%; max-width: 360px;
+      background: var(--body); border-radius: 28px; padding: 20px;
+      box-shadow: var(--shadow);
+    }
+    .display {
+      min-height: 120px; padding: 8px 8px 16px;
+      display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-end;
+      overflow: hidden;
+    }
+    #expression { min-height: 1.4em; color: var(--muted); font-size: 1.05rem; word-break: break-all; text-align: right; }
+    #result { font-size: 3rem; font-weight: 300; line-height: 1.1; white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+    .keys { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    button {
+      font: inherit; font-size: 1.5rem; border: 0; border-radius: 999px;
+      aspect-ratio: 1; background: var(--key); color: var(--key-text);
+      cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+      transition: filter .1s, transform .05s;
+      user-select: none;
+    }
+    button:hover { filter: brightness(1.08); }
+    button:active, button.pressed { filter: brightness(1.25); transform: scale(.96); }
+    button:focus-visible { outline: 3px solid var(--op); outline-offset: 2px; }
+    .fn { background: var(--fn); font-size: 1.3rem; }
+    .op { background: var(--op); color: var(--op-text); font-size: 1.8rem; }
+    @media (max-width: 420px) {
+      body { padding: 0; align-items: stretch; }
+      .calc { max-width: none; border-radius: 0; box-shadow: none; display: flex; flex-direction: column; justify-content: flex-end; padding: 16px; }
+      .display { flex: 1; }
+    }
+  </style>
 </head>
 <body>
+  <main class="calc" aria-label="Calculator">
+    <div class="display" aria-live="polite">
+      <div id="expression"></div>
+      <div id="result">0</div>
+    </div>
+    <div class="keys">
+      <button class="fn" data-action="AC" aria-label="All clear">AC</button>
+      <button class="fn" data-action="sign" aria-label="Plus minus">±</button>
+      <button class="fn" data-action="%" aria-label="Percent">%</button>
+      <button class="op" data-action="/" aria-label="Divide">÷</button>
 
+      <button data-action="7">7</button>
+      <button data-action="8">8</button>
+      <button data-action="9">9</button>
+      <button class="op" data-action="*" aria-label="Multiply">×</button>
+
+      <button data-action="4">4</button>
+      <button data-action="5">5</button>
+      <button data-action="6">6</button>
+      <button class="op" data-action="-" aria-label="Subtract">−</button>
+
+      <button data-action="1">1</button>
+      <button data-action="2">2</button>
+      <button data-action="3">3</button>
+      <button class="op" data-action="+" aria-label="Add">+</button>
+
+      <button class="fn" data-action="back" aria-label="Backspace">⌫</button>
+      <button data-action="0">0</button>
+      <button data-action=".">.</button>
+      <button class="op" data-action="=" aria-label="Equals">=</button>
+    </div>
+  </main>
+  <script src="js/calc.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>
