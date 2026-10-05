@@ -1,7 +1,7 @@
 // Tests for the calculator engine. Run with: npm test (or node --test)
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { evaluate, round, format } = require('../js/calc.js');
+const { evaluate, round, format, calculate } = require('../js/calc.js');
 
 test('operator order', async (t) => {
   await t.test('multiplication before addition', () => {
@@ -98,4 +98,89 @@ test('display formatting', async (t) => {
     assert.equal(format(Infinity), 'Error');
     assert.equal(format(NaN), 'Error');
   });
+});
+
+test('scientific expressions', async (t) => {
+  await t.test('parentheses and powers', () => {
+    assert.equal(calculate('2*(3+4)'), 14);
+    assert.equal(calculate('2^10'), 1024);
+    assert.equal(calculate('2^3^2'), 512);
+    assert.equal(calculate('-2^2'), -4);
+    assert.equal(calculate('(-2)^2'), 4);
+  });
+  await t.test('implicit multiplication', () => {
+    assert.equal(calculate('2(3+4)'), 14);
+    assert.equal(calculate('(1+1)(2+3)'), 10);
+    assert.equal(calculate('2π'), round(2 * Math.PI));
+  });
+  await t.test('missing closing parentheses are filled in', () => {
+    assert.equal(calculate('2*(3+4'), 14);
+    assert.equal(calculate('sin(30'), 0.5);
+  });
+  await t.test('roots, factorial and percent', () => {
+    assert.equal(calculate('√16'), 4);
+    assert.equal(calculate('sqrt(2)^2'), 2);
+    assert.equal(calculate('cbrt(27)'), 3);
+    assert.equal(calculate('5!'), 120);
+    assert.equal(calculate('0!'), 1);
+    assert.equal(calculate('200*15%'), 30);
+  });
+  await t.test('logs and constants', () => {
+    assert.equal(calculate('log(1000)'), 3);
+    assert.equal(calculate('ln(e)'), 1);
+    assert.equal(calculate('e^0'), 1);
+    assert.equal(calculate('abs(-7)'), 7);
+  });
+  await t.test('display symbols are accepted', () => {
+    assert.equal(calculate('6×7−2÷2'), 41);
+  });
+  await t.test('Ans and scientific notation', () => {
+    assert.equal(calculate('Ans+1', { ans: 41 }), 42);
+    assert.equal(calculate('1.5E-7*2'), 3e-7);
+  });
+});
+
+test('trigonometry', async (t) => {
+  await t.test('degrees by default, exact at special angles', () => {
+    assert.equal(calculate('sin(30)'), 0.5);
+    assert.equal(calculate('cos(60)'), 0.5);
+    assert.equal(calculate('tan(45)'), 1);
+    assert.equal(calculate('sin(180)'), 0);
+    assert.equal(calculate('cos(90)'), 0);
+    assert.equal(calculate('asin(1)'), 90);
+  });
+  await t.test('radians', () => {
+    const rad = { angle: 'rad' };
+    assert.equal(calculate('sin(π/2)', rad), 1);
+    assert.equal(calculate('sin(π)', rad), 0);
+    assert.equal(calculate('acos(-1)', rad), round(Math.PI));
+  });
+});
+
+test('scientific errors', async (t) => {
+  const err = (expr, message) => assert.throws(() => calculate(expr), { message });
+  await t.test('divide by zero', () => {
+    err('10/0', 'Cannot divide by zero');
+    err('0^(-1)', 'Cannot divide by zero');
+  });
+  await t.test('out of domain', () => {
+    err('√-4', 'Invalid input');
+    err('log(0)', 'Invalid input');
+    err('asin(2)', 'Invalid input');
+    err('tan(90)', 'Invalid input');
+    err('(-1)!', 'Invalid input');
+    err('2.5!', 'Invalid input');
+  });
+  await t.test('malformed input', () => {
+    err('2+', 'Invalid expression');
+    err('', 'Invalid expression');
+    err('2)', 'Invalid expression');
+    err('hello', 'Invalid expression');
+  });
+});
+
+test('float noise does not break domains', () => {
+  assert.equal(calculate('(0.1+0.2)*10!'), round(0.3 * 3628800));
+  assert.equal(calculate('((0.1+0.2)*10/3)!'), 1);
+  assert.equal(calculate('asin(0.1*10+0.2-0.2)'), 90);
 });
