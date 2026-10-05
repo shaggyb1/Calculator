@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#eef0f6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0b0c12" media="(prefers-color-scheme: dark)">
-  <meta name="description" content="A fast, modern calculator with scientific mode, history and offline support.">
+  <meta name="description" content="A fast, modern calculator with scientific mode, unit converters, history and offline support.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Calculator">
@@ -84,18 +84,19 @@
     /* Top bar */
     .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .seg {
-      position: relative; display: inline-grid; grid-template-columns: 1fr 1fr;
+      position: relative; display: inline-grid; grid-template-columns: 1fr 1fr 1fr;
       background: var(--fn); border-radius: 999px; padding: 3px;
     }
     .seg::before {
-      content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc(50% - 3px);
+      content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3);
       background: var(--key); border-radius: 999px; box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
       transition: transform .3s cubic-bezier(.2, .8, .2, 1);
     }
     .app.sci-on .seg::before { transform: translateX(100%); }
+    .app.conv-on .seg::before { transform: translateX(200%); }
     .seg button {
       position: relative; font: inherit; font-size: .85rem; font-weight: 600;
-      border: 0; background: none; color: var(--muted); padding: 7px 14px; border-radius: 999px; cursor: pointer;
+      border: 0; background: none; color: var(--muted); padding: 7px 12px; border-radius: 999px; cursor: pointer;
       transition: color .2s;
     }
     .seg button[aria-pressed="true"] { color: var(--text); }
@@ -189,6 +190,7 @@
       font-size: 1.6rem; font-weight: 500;
     }
     .app.sci-on .keys .key { height: clamp(48px, 7.4vh, 62px); border-radius: 18px; font-size: 1.4rem; }
+    .app.conv-on .keys .key { height: clamp(46px, 7.6vh, 64px); border-radius: 18px; }
     .keys .fn { background: var(--fn); font-size: 1.2rem; font-weight: 600; }
     .keys .op { background: var(--op); color: var(--op-text); font-size: 1.75rem; }
     .keys .eq {
@@ -196,6 +198,63 @@
       font-size: 1.9rem; box-shadow: 0 10px 24px -8px rgba(109, 93, 252, .6);
     }
     .keys svg { width: 26px; height: 26px; }
+
+    /* Converter */
+    .conv { display: none; flex-direction: column; gap: 10px; padding: 14px 0 12px; min-width: 0; }
+    .app.conv-on .conv { display: flex; }
+    .app.conv-on .display { display: none; }
+    .cats {
+      display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px;
+      scroll-padding: 0 16px; -webkit-overflow-scrolling: touch;
+    }
+    .cats::-webkit-scrollbar { display: none; }
+    .cat {
+      flex: none; font: inherit; font-size: .82rem; font-weight: 600; white-space: nowrap;
+      border: 0; background: var(--fn); color: var(--muted); padding: 7px 12px; border-radius: 999px; cursor: pointer;
+      transition: background-color .2s, color .2s;
+    }
+    .cat[aria-selected="true"] { background: var(--op); color: var(--op-text); }
+    .conv-rows { position: relative; display: flex; flex-direction: column; gap: 8px; }
+    .crow {
+      position: relative; background: var(--key); border: 2px solid transparent; border-radius: 20px;
+      padding: 6px 10px 6px 12px; cursor: text; min-width: 0; box-shadow: var(--key-shadow);
+      transition: border-color .2s, background-color .3s;
+    }
+    .crow.active { border-color: var(--accent); }
+    .crow-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .unit-sel {
+      font: inherit; font-size: .88rem; font-weight: 600; color: var(--text); max-width: 75%;
+      background: var(--fn); border: 0; border-radius: 10px; padding: 6px 28px 6px 10px; cursor: pointer;
+      -webkit-appearance: none; appearance: none; text-overflow: ellipsis;
+      background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+      background-position: right 14px center, right 9px center; background-size: 5px 5px; background-repeat: no-repeat;
+    }
+    .unit-sel option { color: #161827; background: #fff; }
+    .crow .icon-btn { width: 32px; height: 32px; }
+    .crow .icon-btn svg { width: 17px; height: 17px; }
+    .cval {
+      text-align: right; font-size: var(--cv-size, 1.9rem); font-weight: 500; line-height: 1.2; margin-top: 2px;
+      overflow-wrap: anywhere; min-height: 1.2em; letter-spacing: -.01em;
+      transition: font-size .2s;
+    }
+    .crow:not(.active) .cval { color: var(--muted); }
+    .cval .caret {
+      display: inline-block; width: 2px; height: .9em; margin-left: 2px; vertical-align: -.08em;
+      background: var(--accent); border-radius: 1px; animation: blink 1.1s steps(1) infinite;
+    }
+    .crow:not(.active) .caret { display: none; }
+    .cprev { text-align: right; font-size: .8rem; color: var(--muted); min-height: 1em; line-height: 1.2; }
+    .swap {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 1;
+      width: 40px; height: 40px; border-radius: 50%; border: 3px solid var(--bg); cursor: pointer;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: var(--accent-text);
+      display: grid; place-items: center; transition: transform .3s cubic-bezier(.2, .8, .2, 1.2);
+    }
+    .swap svg { width: 18px; height: 18px; }
+    .swap.spin { transform: translate(-50%, -50%) rotate(180deg); }
+    .swap:focus-visible, .cat:focus-visible, .unit-sel:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+    .conv-note { font-size: .82rem; color: var(--muted); text-align: center; line-height: 1.5; min-height: 1.5em; }
+    .conv-note .text-btn { font-size: .82rem; padding: 2px 6px; }
 
     /* History sheet */
     .scrim {
@@ -240,13 +299,16 @@
         padding: max(12px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom));
       }
       .display { flex: 1; }
+      .conv { flex: 1; justify-content: flex-end; }
       .keys { gap: 9px; }
     }
     @media (max-height: 640px) {
       .display { min-height: 110px; }
       .keys .key { height: 50px; }
-      .app.sci-on .keys .key { height: 44px; }
+      .app.sci-on .keys .key, .app.conv-on .keys .key { height: 44px; }
       .sci .key { height: 34px; }
+      .conv { gap: 6px; padding-top: 8px; }
+      .cval { --cv-size: 1.6rem; }
     }
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
@@ -259,6 +321,7 @@
       <div class="seg" role="group" aria-label="Mode">
         <button type="button" data-mode="basic" aria-pressed="true">Basic</button>
         <button type="button" data-mode="sci" aria-pressed="false">Scientific</button>
+        <button type="button" data-mode="conv" aria-pressed="false">Convert</button>
       </div>
       <div class="tools">
         <button type="button" class="chip" id="angle" title="Switch degrees / radians (keyboard: D)">DEG</button>
@@ -273,6 +336,32 @@
       <div class="expr" id="expr"></div>
       <div class="out" id="out" title="Click to copy"></div>
       <div class="toast" id="toast" role="status"></div>
+    </section>
+
+    <section class="conv" id="conv" aria-label="Unit converter">
+      <div class="cats" id="cats" role="tablist" aria-label="What to convert"></div>
+      <div class="conv-rows">
+        <div class="crow active" id="row-from" data-side="from">
+          <div class="crow-top">
+            <select class="unit-sel" id="sel-from" aria-label="From unit"></select>
+            <button type="button" class="icon-btn" data-copy-side="from" aria-label="Copy from value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg></button>
+          </div>
+          <div class="cval" id="val-from"></div>
+          <div class="cprev" id="prev-from"></div>
+        </div>
+        <button type="button" class="swap" id="swap" aria-label="Swap units" title="Swap units">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4"/></svg>
+        </button>
+        <div class="crow" id="row-to" data-side="to">
+          <div class="crow-top">
+            <select class="unit-sel" id="sel-to" aria-label="To unit"></select>
+            <button type="button" class="icon-btn" data-copy-side="to" aria-label="Copy to value"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg></button>
+          </div>
+          <div class="cval" id="val-to"></div>
+          <div class="cprev" id="prev-to"></div>
+        </div>
+      </div>
+      <div class="conv-note" id="convNote" aria-live="polite"></div>
     </section>
 
     <div class="sci-wrap"><div>
@@ -346,6 +435,8 @@
     </aside>
   </main>
   <script src="js/calc.js"></script>
+  <script src="js/units.js"></script>
   <script src="js/app.js"></script>
+  <script src="js/convert.js"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 {
   "name": "Calculator",
   "short_name": "Calculator",
-  "description": "A fast, modern calculator with scientific mode, history and offline support.",
+  "description": "A fast, modern calculator with scientific mode, unit converters, history and offline support.",
   "start_url": "cal.html",
   "scope": "./",
   "display": "standalone",

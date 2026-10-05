@@ -1,5 +1,6 @@
 // Calculator UI: builds an expression string, shows a live preview, and keeps
-// history, theme and mode. All math lives in js/calc.js.
+// history, theme and mode. All math lives in js/calc.js; the unit converter
+// screen lives in js/convert.js.
 (function () {
   'use strict';
 
@@ -250,6 +251,10 @@
   };
 
   function press(a) {
+    if (state.mode === 'conv') {
+      if (window.ConvUI) window.ConvUI.press(a);
+      return;
+    }
     if (/^\d$/.test(a)) actions.digit(a);
     else if (KEY_ACTIONS[a]) actions[KEY_ACTIONS[a][0]](KEY_ACTIONS[a][1]);
     else if (actions[a]) actions[a]();
@@ -353,6 +358,7 @@
     state.mode = mode;
     save('mode', mode);
     app.classList.toggle('sci-on', mode === 'sci');
+    app.classList.toggle('conv-on', mode === 'conv');
     document.querySelector('.sci-wrap').inert = mode !== 'sci';
     document.querySelectorAll('[data-mode]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
@@ -394,6 +400,10 @@
     document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
       m.setAttribute('content', dark ? '#0b0c12' : '#eef0f6');
     });
+    // Android app: match the status and navigation bars to the theme.
+    if (window.CalcNative && window.CalcNative.setDark) {
+      try { window.CalcNative.setDark(dark); } catch (e) { /* ignore */ }
+    }
     if (announce) toast(theme === 'auto' ? 'Theme follows your device' : theme.charAt(0).toUpperCase() + theme.slice(1) + ' theme');
   }
   $('theme').addEventListener('click', function () { setTheme(THEME_NEXT[state.theme], true); });
@@ -445,11 +455,12 @@
     }
     if (e.key === 'h' || e.key === 'H') { e.preventDefault(); return setHistory(true); }
     if (e.key === 't' || e.key === 'T') { e.preventDefault(); return setTheme(THEME_NEXT[state.theme], true); }
-    if (e.key === 'd' || e.key === 'D') { e.preventDefault(); return setAngle(state.angle === 'deg' ? 'rad' : 'deg'); }
+    if ((e.key === 'd' || e.key === 'D') && state.mode !== 'conv') { e.preventDefault(); return setAngle(state.angle === 'deg' ? 'rad' : 'deg'); }
     if (e.key === 'Enter' && /^(BUTTON|A)$/.test(document.activeElement.tagName) &&
         !document.activeElement.classList.contains('key')) return; // let focused buttons work
     var a = e.key in KEYMAP ? KEYMAP[e.key] : e.key;
     if (!a || !(/^[\d.()]$/.test(a) || KEY_ACTIONS[a] || actions[a])) return;
+    if (state.mode === 'conv' && document.activeElement.tagName === 'SELECT') return;
     e.preventDefault();
     press(a);
     var btn = document.querySelector('.key[data-a="' + CSS.escape(a === '^' ? 'pow' : a === '!' ? 'fact' : a) + '"]');
@@ -467,20 +478,40 @@
       .replace(/pi/gi, 'π');
     try { engine.tokenize(clean); } catch (err) { return toast('Can’t paste that'); }
     e.preventDefault();
+    if (state.mode === 'conv') {
+      if (window.ConvUI) window.ConvUI.paste(clean);
+      return;
+    }
     continueFrom(false);
     state.expr += clean;
     render();
   });
 
+  // Shared with js/convert.js.
+  window.CalcUI = {
+    load: load, save: save, toast: toast, copy: copy, buzz: buzz, ripple: ripple,
+    formatNumber: formatNumber, pretty: pretty, escapeHtml: escapeHtml, openParens: openParens
+  };
+
+  // Android back button: close the history sheet first. Returns true if handled.
+  window.CalcApp = {
+    back: function () {
+      if (app.classList.contains('hist-on')) { setHistory(false); return true; }
+      return false;
+    }
+  };
+
   // ---- Start ----
   setTheme(state.theme, false);
-  setMode(state.mode === 'sci' ? 'sci' : 'basic');
+  setMode(state.mode === 'sci' || state.mode === 'conv' ? state.mode : 'basic');
   setAngle(state.angle === 'rad' ? 'rad' : 'deg');
   renderHistory();
   render();
 
   // Offline support when served over http(s).
-  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.CALC_NO_SW) {
+  // Not needed inside the Android app, which ships the files itself.
+  if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !window.CALC_NO_SW &&
+      !/CalculatorApp\//.test(navigator.userAgent)) {
     window.addEventListener('load', function () {
       navigator.serviceWorker.register('sw.js').catch(function () { /* offline mode unavailable */ });
     });
