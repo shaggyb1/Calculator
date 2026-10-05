@@ -378,16 +378,19 @@
     dark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg>'
   };
   var THEME_NEXT = { auto: 'light', light: 'dark', dark: 'auto' };
+  var hostTheme = document.documentElement.getAttribute('data-theme'); // set by an embedding page, if any
   function setTheme(theme, announce) {
     state.theme = theme;
     save('theme', theme);
-    if (theme === 'auto') document.documentElement.removeAttribute('data-theme');
+    if (theme === 'auto' && !hostTheme) document.documentElement.removeAttribute('data-theme');
+    else if (theme === 'auto') document.documentElement.setAttribute('data-theme', hostTheme);
     else document.documentElement.setAttribute('data-theme', theme);
     var btn = $('theme');
     btn.innerHTML = THEME_ICONS[theme];
     btn.title = 'Theme: ' + theme + ' (keyboard: T)';
     btn.setAttribute('aria-label', 'Theme: ' + theme + '. Change theme');
-    var dark = theme === 'dark' || (theme === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var dark = theme === 'dark' || (theme === 'auto' && hostTheme === 'dark') ||
+      (theme === 'auto' && !hostTheme && window.matchMedia('(prefers-color-scheme: dark)').matches);
     document.querySelectorAll('meta[name="theme-color"]').forEach(function (m) {
       m.setAttribute('content', dark ? '#0b0c12' : '#eef0f6');
     });
