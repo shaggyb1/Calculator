@@ -1,7 +1,8 @@
 // Service worker: caches the app so it opens offline. Bump VERSION when files change.
-var VERSION = 'calc-v1';
+var VERSION = 'calc-v3';
 var FILES = [
   'cal.html', 'js/calc.js', 'js/app.js', 'manifest.webmanifest',
+  'js/units.js', 'js/editor.js', 'js/convert.js', 'js/gst.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png'
 ];
 

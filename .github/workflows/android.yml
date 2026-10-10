@@ -1,0 +1,51 @@
+name: Android APK
+
+on:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Test the calculator and converters
+        run: npm test
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build the APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ../Calculator.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Calculator-apk
+          path: Calculator.apk
+          if-no-files-found: error
+
+      # Keep one "android-latest" pre-release with the newest APK so it can be
+      # downloaded straight to a phone from the repository's Releases page.
+      - name: Publish the latest APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-latest --yes --cleanup-tag || true
+          gh release create android-latest Calculator.apk --prerelease \
+            --target "$GITHUB_SHA" \
+            --title "Calculator for Android (latest build)" \
+            --notes "Built from ${GITHUB_REF_NAME} at ${GITHUB_SHA::7}. Works on Android 5.0 and newer. Download Calculator.apk on your phone and open it to install."

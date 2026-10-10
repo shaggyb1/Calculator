@@ -1,0 +1,81 @@
+plugins {
+    id 'com.android.application'
+}
+
+// The web app (cal.html, js/, icons/) lives at the repository root. It is copied
+// into the APK's assets at build time so there is only one copy to maintain.
+def webRoot = rootProject.file('..')
+def webAssets = layout.buildDirectory.dir('generated/webassets')
+
+def syncWeb = tasks.register('syncWeb', Sync) {
+    from(webRoot) {
+        include 'cal.html', 'js/**', 'icons/**'
+    }
+    into webAssets.map { it.dir('www') }
+}
+
+// Signing: CI can pass its own key through environment variables. Without them,
+// the sideload key in this folder is used so every build can install over the last.
+def envKey = System.getenv('CALC_KEYSTORE_FILE')
+
+android {
+    namespace 'com.shaggyb1.calculator'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.shaggyb1.calculator'
+        minSdk 21
+        targetSdk 35
+        versionCode 2
+        versionName '1.1'
+    }
+
+    signingConfigs {
+        sideload {
+            if (envKey) {
+                storeFile file(envKey)
+                storePassword System.getenv('CALC_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('CALC_KEY_ALIAS')
+                keyPassword System.getenv('CALC_KEY_PASSWORD')
+            } else {
+                storeFile rootProject.file('sideload.keystore')
+                storePassword 'calculator'
+                keyAlias 'calculator'
+                keyPassword 'calculator'
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+        debug {
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    sourceSets {
+        main.assets.srcDir webAssets
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    lint {
+        abortOnError false
+    }
+}
+
+tasks.named('preBuild') { dependsOn syncWeb }
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
