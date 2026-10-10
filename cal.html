@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#eef0f6" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0b0c12" media="(prefers-color-scheme: dark)">
-  <meta name="description" content="A fast, modern calculator with scientific mode, unit converters, history and offline support.">
+  <meta name="description" content="A fast, modern calculator with scientific mode, unit converters, GST, history and offline support.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Calculator">
@@ -84,19 +84,18 @@
     /* Top bar */
     .bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .seg {
-      position: relative; display: inline-grid; grid-template-columns: 1fr 1fr 1fr;
+      position: relative; display: inline-flex;
       background: var(--fn); border-radius: 999px; padding: 3px;
     }
     .seg::before {
-      content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / 3);
+      content: ""; position: absolute; top: 3px; bottom: 3px; left: 3px; width: var(--pill-w, 0);
+      transform: translateX(var(--pill-x, 0));
       background: var(--key); border-radius: 999px; box-shadow: 0 2px 8px rgba(0, 0, 0, .12);
-      transition: transform .3s cubic-bezier(.2, .8, .2, 1);
+      transition: transform .3s cubic-bezier(.2, .8, .2, 1), width .3s cubic-bezier(.2, .8, .2, 1);
     }
-    .app.sci-on .seg::before { transform: translateX(100%); }
-    .app.conv-on .seg::before { transform: translateX(200%); }
     .seg button {
       position: relative; font: inherit; font-size: .85rem; font-weight: 600;
-      border: 0; background: none; color: var(--muted); padding: 7px 12px; border-radius: 999px; cursor: pointer;
+      border: 0; background: none; color: var(--muted); padding: 7px 11px; border-radius: 999px; cursor: pointer;
       transition: color .2s;
     }
     .seg button[aria-pressed="true"] { color: var(--text); }
@@ -112,9 +111,10 @@
     .chip {
       font: inherit; font-size: .72rem; font-weight: 700; letter-spacing: .06em;
       border: 0; background: var(--op); color: var(--op-text); border-radius: 999px; padding: 6px 10px; cursor: pointer;
-      opacity: 0; transform: scale(.8); pointer-events: none; transition: opacity .25s, transform .25s;
+      opacity: 0; transform: scale(.8); pointer-events: none; transition: opacity .25s, transform .25s, max-width .3s, padding .3s;
+      max-width: 0; padding-left: 0; padding-right: 0; overflow: hidden;
     }
-    .app.sci-on .chip { opacity: 1; transform: none; pointer-events: auto; }
+    .app.sci-on .chip { opacity: 1; transform: none; pointer-events: auto; max-width: 60px; padding-left: 10px; padding-right: 10px; }
 
     /* Display */
     .display {
@@ -190,7 +190,7 @@
       font-size: 1.6rem; font-weight: 500;
     }
     .app.sci-on .keys .key { height: clamp(48px, 7.4vh, 62px); border-radius: 18px; font-size: 1.4rem; }
-    .app.conv-on .keys .key { height: clamp(46px, 7.6vh, 64px); border-radius: 18px; }
+    .app.conv-on .keys .key, .app.gst-on .keys .key { height: clamp(46px, 7.4vh, 64px); border-radius: 18px; }
     .keys .fn { background: var(--fn); font-size: 1.2rem; font-weight: 600; }
     .keys .op { background: var(--op); color: var(--op-text); font-size: 1.75rem; }
     .keys .eq {
@@ -202,7 +202,7 @@
     /* Converter */
     .conv { display: none; flex-direction: column; gap: 10px; padding: 14px 0 12px; min-width: 0; }
     .app.conv-on .conv { display: flex; }
-    .app.conv-on .display { display: none; }
+    .app.conv-on .display, .app.gst-on .display { display: none; }
     .cats {
       display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px 2px;
       scroll-padding: 0 16px; -webkit-overflow-scrolling: touch;
@@ -256,6 +256,36 @@
     .conv-note { font-size: .82rem; color: var(--muted); text-align: center; line-height: 1.5; min-height: 1.5em; }
     .conv-note .text-btn { font-size: .82rem; padding: 2px 6px; }
 
+    /* GST */
+    .gst { display: none; flex-direction: column; gap: 10px; padding: 14px 0 12px; min-width: 0; }
+    .app.gst-on .gst { display: flex; }
+    .gst-opts { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .mini-seg { display: inline-flex; background: var(--fn); border-radius: 12px; padding: 3px; }
+    .mini-seg button {
+      font: inherit; font-size: .78rem; font-weight: 600; border: 0; background: none; color: var(--muted);
+      padding: 6px 10px; border-radius: 9px; cursor: pointer; transition: background-color .2s, color .2s;
+    }
+    .mini-seg button[aria-pressed="true"] { background: var(--key); color: var(--text); box-shadow: 0 1px 4px rgba(0, 0, 0, .1); }
+    .rate-input {
+      flex: none; width: 84px; font: inherit; font-size: .82rem; font-weight: 600; color: var(--text);
+      background: var(--key); border: 2px solid var(--accent); border-radius: 999px; padding: 5px 10px;
+    }
+    .gst-lbl { font-size: .8rem; font-weight: 600; color: var(--muted); }
+    .gst-card {
+      background: var(--key); border-radius: 20px; padding: 6px 8px; box-shadow: var(--key-shadow);
+      display: flex; flex-direction: column;
+    }
+    .gst-line {
+      display: flex; justify-content: space-between; gap: 12px; font: inherit; font-size: .95rem; color: var(--text);
+      background: none; border: 0; padding: 6px 6px; border-radius: 10px; cursor: pointer; text-align: left;
+    }
+    .gst-line:hover { background: var(--sci-hover); }
+    .gst-line span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .gst-split { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; font-size: .78rem; color: var(--muted); padding: 0 6px 4px; }
+    .gst-total { border-top: 1px solid var(--fn); border-radius: 0 0 12px 12px; padding-top: 8px; font-size: 1.15rem; font-weight: 600; }
+    .gst-total span:last-child { color: var(--accent); }
+    .mini-seg button:focus-visible, .gst-line:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
     /* History sheet */
     .scrim {
       position: absolute; inset: 0; background: rgba(8, 9, 16, .35); opacity: 0; pointer-events: none;
@@ -299,15 +329,16 @@
         padding: max(12px, env(safe-area-inset-top)) 14px max(16px, env(safe-area-inset-bottom));
       }
       .display { flex: 1; }
-      .conv { flex: 1; justify-content: flex-end; }
+      .conv, .gst { flex: 1; justify-content: flex-end; }
       .keys { gap: 9px; }
     }
     @media (max-height: 640px) {
       .display { min-height: 110px; }
       .keys .key { height: 50px; }
-      .app.sci-on .keys .key, .app.conv-on .keys .key { height: 44px; }
+      .app.sci-on .keys .key, .app.conv-on .keys .key, .app.gst-on .keys .key { height: 44px; }
       .sci .key { height: 34px; }
-      .conv { gap: 6px; padding-top: 8px; }
+      .conv, .gst { gap: 6px; padding-top: 8px; }
+      .gst-line { padding: 3px 6px; }
       .cval { --cv-size: 1.6rem; }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -320,8 +351,9 @@
     <header class="bar">
       <div class="seg" role="group" aria-label="Mode">
         <button type="button" data-mode="basic" aria-pressed="true">Basic</button>
-        <button type="button" data-mode="sci" aria-pressed="false">Scientific</button>
+        <button type="button" data-mode="sci" aria-pressed="false" aria-label="Scientific" title="Scientific">Sci</button>
         <button type="button" data-mode="conv" aria-pressed="false">Convert</button>
+        <button type="button" data-mode="gst" aria-pressed="false">GST</button>
       </div>
       <div class="tools">
         <button type="button" class="chip" id="angle" title="Switch degrees / radians (keyboard: D)">DEG</button>
@@ -362,6 +394,29 @@
         </div>
       </div>
       <div class="conv-note" id="convNote" aria-live="polite"></div>
+    </section>
+
+    <section class="gst" id="gst" aria-label="GST calculator">
+      <div class="gst-opts">
+        <div class="mini-seg" role="group" aria-label="Add or remove GST">
+          <button type="button" data-gmode="add" aria-pressed="true">Add GST</button>
+          <button type="button" data-gmode="remove" aria-pressed="false">Remove GST</button>
+        </div>
+        <div class="mini-seg" role="group" aria-label="Tax split">
+          <button type="button" data-split="cs" aria-pressed="true" title="Within a state">CGST+SGST</button>
+          <button type="button" data-split="igst" aria-pressed="false" title="Between states">IGST</button>
+        </div>
+      </div>
+      <div class="cats" role="radiogroup" aria-label="GST rate">
+        <div id="gstRates" style="display:contents"></div>
+        <input class="rate-input" id="gstCustom" type="number" inputmode="decimal" min="0" max="100" step="0.01" placeholder="Rate %" aria-label="Other GST rate in percent" hidden>
+      </div>
+      <div class="crow active">
+        <div class="gst-lbl" id="gstAmtLabel">Amount before GST</div>
+        <div class="cval" id="gstAmt"></div>
+        <div class="cprev" id="gstPrev"></div>
+      </div>
+      <div class="gst-card" id="gstOut" aria-live="polite"></div>
     </section>
 
     <div class="sci-wrap"><div>
@@ -436,7 +491,9 @@
   </main>
   <script src="js/calc.js"></script>
   <script src="js/units.js"></script>
+  <script src="js/editor.js"></script>
   <script src="js/app.js"></script>
   <script src="js/convert.js"></script>
+  <script src="js/gst.js"></script>
 </body>
 </html>

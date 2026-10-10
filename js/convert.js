@@ -4,8 +4,8 @@
 (function () {
   'use strict';
 
-  var units = window.UnitConvert, engine = window.CalcEngine, ui = window.CalcUI;
-  if (!units || !ui) return;
+  var units = window.UnitConvert, ui = window.CalcUI;
+  if (!units || !ui || !window.ExprEditor) return;
   var $ = function (id) { return document.getElementById(id); };
   var catsEl = $('cats'), noteEl = $('convNote');
   var rows = { from: $('row-from'), to: $('row-to') };
@@ -20,10 +20,9 @@
     cat: units.category(saved.cat) ? saved.cat : 'length',
     picks: saved.picks && typeof saved.picks === 'object' ? saved.picks : {}, // catId -> [from, to]
     side: saved.side === 'to' ? 'to' : 'from', // the row being typed into
-    text: typeof saved.text === 'string' && saved.text ? saved.text : '1',
-    fresh: true, // the next digit replaces the text
     updating: false
   };
+  var ed = window.ExprEditor(saved.text || '1', function () { ui.buzz(30); });
 
   // Saved live currency rates, if any.
   var savedRates = ui.load('rates', null);
@@ -32,7 +31,7 @@
   }
 
   function persist() {
-    ui.save('conv', { cat: state.cat, picks: state.picks, side: state.side, text: state.text });
+    ui.save('conv', { cat: state.cat, picks: state.picks, side: state.side, text: ed.text });
   }
 
   function cat() { return units.category(state.cat); }
@@ -46,13 +45,7 @@
   function other(side) { return side === 'from' ? 'to' : 'from'; }
 
   // ---- Values ----
-  // The typed text as a number, ignoring a trailing operator, or null.
-  function typedValue() {
-    var src = state.text.replace(/[+\-*/^(]+$/, '');
-    if (!src || src === '-') return null;
-    src += new Array(ui.openParens(src) + 1).join(')');
-    try { return engine.calculate(src, { angle: 'deg', ans: 0 }); } catch (e) { return null; }
-  }
+  function typedValue() { return ed.value(); }
 
   function convertedValue() {
     var v = typedValue();
@@ -73,8 +66,6 @@
     else n = parseFloat(n.toPrecision(4));
     return ui.formatNumber(n);
   }
-
-  function isPlainNumber(text) { return /^-?(\d+\.?\d*|\.\d+)(E[+-]?\d+)?$/.test(text); }
 
   // ---- Rendering ----
   function renderCats() {
@@ -106,11 +97,11 @@
     rows[active].classList.add('active');
     rows[passive].classList.remove('active');
 
-    var typed = state.text ? ui.pretty(state.text) : '0';
+    var typed = ed.text ? ui.pretty(ed.text) : '0';
     vals[active].innerHTML = ui.escapeHtml(typed) + '<span class="caret"></span>';
     fit(vals[active], typed);
     var v = typedValue();
-    prevs[active].textContent = isPlainNumber(state.text) || v === null ? '' : '= ' + show(v);
+    prevs[active].textContent = ed.isPlainNumber() || v === null ? '' : '= ' + show(v);
 
     var out = show(convertedValue());
     vals[passive].textContent = out;
@@ -136,82 +127,12 @@
   }
 
   // ---- Typing ----
-  function trailingNumber() {
-    var m = /(\d+\.?\d*|\.\d+)(E[+-]?\d*)?$/.exec(state.text);
-    return m ? m[0] : '';
-  }
-  function endsWithValue() { return /[\d.)%]$/.test(state.text); }
-
-  function startFresh() {
-    if (state.fresh) { state.text = ''; state.fresh = false; }
-  }
-
-  var actions = {
-    digit: function (d) {
-      startFresh();
-      var num = trailingNumber();
-      if (num === '0') state.text = state.text.slice(0, -1);
-      else if (num.replace(/\D/g, '').length >= 15) return;
-      state.text += d;
-    },
-    '.': function () {
-      startFresh();
-      var num = trailingNumber();
-      if (/[.E]/.test(num)) return;
-      state.text += num ? '.' : '0.';
-    },
-    op: function (op) {
-      state.fresh = false;
-      if (op === '-' && (!state.text || /[*/(]$/.test(state.text))) { state.text += '-'; return; }
-      state.text = state.text.replace(/[+\-*/]+$/, '');
-      if (endsWithValue()) state.text += op;
-    },
-    '%': function () {
-      state.fresh = false;
-      if (endsWithValue()) state.text += '%';
-    },
-    '(': function () { startFresh(); state.text += '('; },
-    ')': function () {
-      state.fresh = false;
-      if (ui.openParens(state.text) > 0 && endsWithValue()) state.text += ')';
-    },
-    sign: function () {
-      state.fresh = false;
-      var t = state.text;
-      if (!t || t === '0') state.text = '-';
-      else if (t === '-') state.text = '';
-      else if (isPlainNumber(t)) state.text = t.charAt(0) === '-' ? t.slice(1) : '-' + t;
-      else if (/^-\(.*\)$/.test(t) && ui.openParens(t.slice(2, -1)) === 0) state.text = t.slice(2, -1);
-      else state.text = '-(' + t + new Array(ui.openParens(t) + 1).join(')') + ')';
-    },
-    back: function () {
-      state.fresh = false;
-      var m = /E[+-]?$/.exec(state.text);
-      state.text = state.text.slice(0, m ? -m[0].length : -1);
-    },
-    AC: function () { state.text = '0'; state.fresh = true; },
-    '=': function () {
-      var v = typedValue();
-      if (v === null) { ui.buzz(30); return; }
-      state.text = String(v).replace('e', 'E');
-      state.fresh = true;
-    }
-  };
-
-  var KEYS = { '+': ['op', '+'], '-': ['op', '-'], '*': ['op', '*'], '/': ['op', '/'] };
-
   function press(a) {
-    if (/^\d$/.test(a)) actions.digit(a);
-    else if (KEYS[a]) actions[KEYS[a][0]](KEYS[a][1]);
-    else if (actions[a]) actions[a]();
-    else return;
-    render();
+    if (ed.press(a)) render();
   }
 
   function paste(clean) {
-    if (!/^[\d.+\-*/()%E]+$/.test(clean)) { ui.toast('Can’t paste that'); return; }
-    startFresh();
-    state.text += clean;
+    if (!ed.paste(clean)) { ui.toast('Can’t paste that'); return; }
     render();
   }
 
@@ -220,8 +141,7 @@
     if (side === state.side) return;
     var v = convertedValue();
     state.side = side;
-    state.text = v === null ? '0' : String(parseFloat(v.toPrecision(10))).replace('e', 'E');
-    state.fresh = true;
+    ed.set(v === null ? null : parseFloat(v.toPrecision(10)));
     render();
   }
 
@@ -260,8 +180,7 @@
     if (!b || b.dataset.cat === state.cat) return;
     state.cat = b.dataset.cat;
     state.side = 'from';
-    state.text = '1';
-    state.fresh = true;
+    ed.set(1);
     catsEl.querySelectorAll('[data-cat]').forEach(function (x) {
       x.setAttribute('aria-selected', String(x === b));
     });

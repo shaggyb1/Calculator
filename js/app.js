@@ -1,6 +1,6 @@
 // Calculator UI: builds an expression string, shows a live preview, and keeps
 // history, theme and mode. All math lives in js/calc.js; the unit converter
-// screen lives in js/convert.js.
+// and GST screens live in js/convert.js and js/gst.js.
 (function () {
   'use strict';
 
@@ -250,9 +250,13 @@
     pi: ['value', 'π'], e: ['value', 'e']
   };
 
+  // Screens that take over the keypad: mode -> the object they put on window.
+  var PANELS = { conv: 'ConvUI', gst: 'GstUI' };
+  function panel() { return PANELS[state.mode] ? window[PANELS[state.mode]] : null; }
+
   function press(a) {
-    if (state.mode === 'conv') {
-      if (window.ConvUI) window.ConvUI.press(a);
+    if (PANELS[state.mode]) {
+      if (panel()) panel().press(a);
       return;
     }
     if (/^\d$/.test(a)) actions.digit(a);
@@ -359,11 +363,23 @@
     save('mode', mode);
     app.classList.toggle('sci-on', mode === 'sci');
     app.classList.toggle('conv-on', mode === 'conv');
+    app.classList.toggle('gst-on', mode === 'gst');
     document.querySelector('.sci-wrap').inert = mode !== 'sci';
     document.querySelectorAll('[data-mode]').forEach(function (b) {
       b.setAttribute('aria-pressed', String(b.dataset.mode === mode));
     });
+    movePill();
   }
+  // Slide the highlight behind the selected mode button.
+  function movePill() {
+    var seg = document.querySelector('.seg');
+    var b = seg.querySelector('[aria-pressed="true"]');
+    if (!b) return;
+    seg.style.setProperty('--pill-x', (b.offsetLeft - 3) + 'px');
+    seg.style.setProperty('--pill-w', b.offsetWidth + 'px');
+  }
+  window.addEventListener('resize', movePill);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(movePill);
   document.querySelector('.seg').addEventListener('click', function (e) {
     var b = e.target.closest('[data-mode]');
     if (b) setMode(b.dataset.mode);
@@ -441,6 +457,7 @@
 
   document.addEventListener('keydown', function (e) {
     if (e.altKey) return;
+    if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return; // typing in a text box
     var mod = e.ctrlKey || e.metaKey;
     if (mod && (e.key === 'c' || e.key === 'C')) {
       if (String(window.getSelection())) return; // let normal copy work
@@ -455,12 +472,12 @@
     }
     if (e.key === 'h' || e.key === 'H') { e.preventDefault(); return setHistory(true); }
     if (e.key === 't' || e.key === 'T') { e.preventDefault(); return setTheme(THEME_NEXT[state.theme], true); }
-    if ((e.key === 'd' || e.key === 'D') && state.mode !== 'conv') { e.preventDefault(); return setAngle(state.angle === 'deg' ? 'rad' : 'deg'); }
+    if ((e.key === 'd' || e.key === 'D') && !PANELS[state.mode]) { e.preventDefault(); return setAngle(state.angle === 'deg' ? 'rad' : 'deg'); }
     if (e.key === 'Enter' && /^(BUTTON|A)$/.test(document.activeElement.tagName) &&
         !document.activeElement.classList.contains('key')) return; // let focused buttons work
     var a = e.key in KEYMAP ? KEYMAP[e.key] : e.key;
     if (!a || !(/^[\d.()]$/.test(a) || KEY_ACTIONS[a] || actions[a])) return;
-    if (state.mode === 'conv' && document.activeElement.tagName === 'SELECT') return;
+    if (PANELS[state.mode] && document.activeElement.tagName === 'SELECT') return;
     e.preventDefault();
     press(a);
     var btn = document.querySelector('.key[data-a="' + CSS.escape(a === '^' ? 'pow' : a === '!' ? 'fact' : a) + '"]');
@@ -472,14 +489,15 @@
 
   // Paste an expression like "12*(3+4)" or "2×π".
   document.addEventListener('paste', function (e) {
+    if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
     var text = (e.clipboardData || window.clipboardData).getData('text');
     if (!text) return;
     var clean = text.replace(/[,\s]/g, '').replace(/×/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-')
       .replace(/pi/gi, 'π');
     try { engine.tokenize(clean); } catch (err) { return toast('Can’t paste that'); }
     e.preventDefault();
-    if (state.mode === 'conv') {
-      if (window.ConvUI) window.ConvUI.paste(clean);
+    if (PANELS[state.mode]) {
+      if (panel()) panel().paste(clean);
       return;
     }
     continueFrom(false);
@@ -487,7 +505,7 @@
     render();
   });
 
-  // Shared with js/convert.js.
+  // Shared with js/convert.js and js/gst.js.
   window.CalcUI = {
     load: load, save: save, toast: toast, copy: copy, buzz: buzz, ripple: ripple,
     formatNumber: formatNumber, pretty: pretty, escapeHtml: escapeHtml, openParens: openParens
@@ -503,7 +521,7 @@
 
   // ---- Start ----
   setTheme(state.theme, false);
-  setMode(state.mode === 'sci' || state.mode === 'conv' ? state.mode : 'basic');
+  setMode(state.mode === 'sci' || PANELS[state.mode] ? state.mode : 'basic');
   setAngle(state.angle === 'rad' ? 'rad' : 'deg');
   renderHistory();
   render();
